@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="51720489-cf20-434d-99ca-df402fe02bf7" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="04a564c7-8cea-4ace-9c6b-22918e578bb8" >
+		<http:request-connection host="http://localhost:8081"/>
+	</http:request-config>
+	<flow name="SoapAndExceptionHandlingFlow" doc:id="92473acc-b18c-4027-bc11-228a9c38f34a" >
+		<http:listener doc:name="Listener" doc:id="9e38172b-1803-4e4a-8712-bf8dba7614b2" config-ref="HTTP_Listener_config" path="/call/API"/>
+		<set-variable value="#[attributes.queryParams.transId]" doc:name="Set Variable" doc:id="d9399b4b-2547-47ed-8ab9-6bc1830ee8c0" variableName="transactionId"/>
+		<ee:transform doc:name="Transform Message" doc:id="73cb8353-66ee-4e44-a6c4-08de780eab9e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+{
+	EmployeeDetails: {
+		
+		Name: payload.Request.Name,
+		Id: payload.Request.Id,
+		Age: payload.Request.Age,
+		Salary: payload.Request.Salary,
+		Address: payload.Request.Address,
+		City: payload.Request.City,
+		State: payload.Request.State,
+		Zip: payload.Request.Zip
+		
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="e8d6fa28-6e90-44ee-889b-e3e4e3b55605" />
+	</flow>
+	<flow name="restapi" doc:id="25e28470-15e5-4190-ba14-dbe3edb5f15f">
+		<http:listener doc:name="Listener" doc:id="3e432f8a-a913-499e-b57b-b35c4d8b2f4e" config-ref="HTTP_Listener_config" path="/employee" />
+		<set-variable value='"abc"' doc:name="Set Variable" doc:id="c9b5771f-3df2-4160-9c2f-1ddac8caca27" variableName="transactionid" />
+		<http:request method="POST" doc:name="Request" doc:id="7f247f70-ceb2-436d-b2c8-65a3ed34ab64" config-ref="HTTP_Request_configuration" path="/call/API">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Key" : vars.transactionid
+}]]]></http:headers>
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"transId" : vars.transactionid
+}]]]></http:query-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="af0de6d4-65df-44d0-a41c-2dfbcaab4b6f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="b35109bc-eced-460f-81cd-dac7d265a57d" />
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="3f6418c6-975e-46c2-a88c-adc60291ada5" type="HTTP:BAD_REQUEST" when="401">
+				<ee:transform doc:name="Transform Message" doc:id="daac5733-fa9e-4bcc-a6c7-128a6de4ee71" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Provided input is invalid!!!"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="b2c830a7-f830-4005-836c-158fe6730f0f" type="HTTP:NOT_FOUND" when="404">
+				<ee:transform doc:name="Transform Message" doc:id="fc563148-afc5-4cd3-a374-07113ec61790" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"Data Not Found error occurred !!!"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="Error_Handling_AND_Masking" doc:id="ec5c4ad7-7777-41d3-99ce-a7259e76ac99" >
+		<http:listener doc:name="Listener" doc:id="6f4cb3c8-d998-49e4-9bbf-16271245287e" config-ref="HTTP_Listener_config" path="/web/errorHandling" allowedMethods="POST">
+			<http:error-response statusCode="#[vars.statusCode]">
+				<http:body ><![CDATA[#[output application/json --- payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<choice doc:name="Choice" doc:id="4e5e90d3-0eee-4bd2-a2b3-76248c09a5e7" >
+			<when expression="#[(payload[0] == null)]">
+				<raise-error doc:name="Raise error" doc:id="e63edaa3-9570-4bf4-a2d0-8bd0041511f9" type="PRECONDITION:MISSING_PAYLOAD" description="Payload is missing"/>
+			</when>
+			<when expression="#[(payload.accno == null or payload.ssn == null or isBlank(payload.accno) or isBlank(payload.ssn))]">
+				<raise-error doc:name="Raise error" doc:id="6db7fa47-81ba-4ac6-b78f-00dba1633f14" type="PRECONDITION:MISSING_ACCOUNTNO_SSN" description="Acoount Number or SSN Number is Missing" />
+			</when>
+			<when expression='#[payload.ssn != "1234567"]'>
+				<raise-error doc:name="Raise error" doc:id="4423e7d0-c126-4cf9-8c00-7c209805b752" type="DATA:UNAUTHORIZED" description="SSN Value passed is not correct"/>
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Logger" doc:id="662ff750-1039-4bf6-b393-dbe787cc6297" message='#[{
+		Name: payload.Name,
+		Account_number: "*******",
+		age: payload.age,
+		ssn: "*******"
+	
+}]'/>
+				<ee:transform doc:name="Transform Message" doc:id="2cb639c9-e090-4bb6-b0c8-61c52d109a4c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+		Name: payload.Name,
+		Account_number: "*******",
+		Age: payload.age,
+		SSN: "*******"
+	
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ba32dbc8-99bf-4d17-823f-e7d6cb19662b" type="PRECONDITION:MISSING_PAYLOAD">
+				<ee:transform doc:name="Transform Message" doc:id="979554c6-c936-483c-aa80-76b991a848c6" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"message": "Payload cannot be empty"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="400" doc:name="Set Variable" doc:id="8261dd20-7ca4-448c-8f4f-48202d0b9cfe" variableName="statusCode"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="fcf0458c-4a44-4cce-8d7d-e0dfe486025c" type="PRECONDITION:MISSING_ACCOUNTNO_SSN">
+				<ee:transform doc:name="Transform Message" doc:id="9d2d4c53-9568-4795-a915-539dc16de9fa">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Account number and SSN cannot be blank"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="400" doc:name="Set Variable" doc:id="2e6708e7-b461-4430-bac5-59e32395912f" variableName="statusCode" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="48f1d0e1-77d8-4291-bbff-16ad631a032e" type="DATA:UNAUTHORIZED">
+				<ee:transform doc:name="Transform Message" doc:id="1601c19e-73ad-48a6-ace9-8d001e0ad688" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "User is not authenticated. Please verify SSN Number"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="401" doc:name="Set Variable" doc:id="18b6ad1e-c5c4-4db1-9830-1ae2d9adfd42" variableName="statusCode"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="d18d18b2-fe6d-4900-9395-5a1da9d9eeb5" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="c3f0e332-2f7b-4fe1-bf67-13a16d0cd6b1" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Some error occurred. Please verify your payload or other details."
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

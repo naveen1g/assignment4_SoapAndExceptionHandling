@@ -1,0 +1,22 @@
+<Personnel>
+	<Employee type="permanent">
+		<Name>naveen</Name>
+		<Id>12</Id>
+		<Age>36</Age>
+		<Salary>500</Salary>
+		<Address>120</Address>
+		<City>Noida</City>
+		<State>Utter Pradesh</State>
+		<Zip>201301</Zip>
+	</Employee>
+	<Employee type="contract">
+		<Name>sachin</Name>
+		<Id>12</Id>
+		<Age>30</Age>
+		<Salary>400</Salary>
+		<Address>20-P</Address>
+		<City>noida</City>
+		<State>up</State>
+		<Zip>12</Zip>
+	</Employee>
+</Personnel>
